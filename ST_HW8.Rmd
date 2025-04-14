@@ -1,0 +1,209 @@
+---
+title: "ST_H87"
+author: "Mika Ohayon  mo25575"
+date: "2025-04-02"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+[Click here for Github repo for code](https://github.com/mikaohayon/ST_HW7/blob/main/ST_HW7.Rmd)
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+```{r, echo=FALSE}
+library(tidyverse)
+creatinine <- read.csv("C:/Users/mikao/Downloads/Statistical thinking/creatinine.csv")
+```
+
+### Question 1
+
+For this problem i fit a linear model: creatinine clearance as a function of age and found that When age is 0 (hypothetically), the expected clearance rate is about 147.81 mL/min, which is the intercept.Additionally for each additional year of age, the clearance rate decreases by approximately 0.62 mL/min which is the slope of the linear model, and the model indicates a fairly strong linear relationship between age and kidney function.
+
+```{r, echo=FALSE, results='hide'}
+model <- lm(creatclear ~ age, data = creatinine)
+summary(model)
+```
+
+```{r, echo=FALSE}
+library(ggplot2)
+# Create a scatterplot with a regression line
+ggplot(creatinine, aes(x = age, y = creatclear)) +
+  geom_point(color = "steelblue", size = 2) +  # Scatterplot
+  geom_smooth(method = "lm", se = TRUE, color = "darkred") +  
+  labs(
+    title = "Creatinine Clearance vs. Age",
+    x = "Age (years)",
+    y = "Creatinine Clearance (mL/minute)"
+  ) +
+  theme_minimal()
+```
+
+### Part A- What creatinine clearance rate should we expect for a 55-year-old?
+
+```{r, echo=FALSE}
+intercept <- 147.813
+slope <- -0.6198
+predicted_55 <- intercept + slope * 55
+predicted_55
+```
+To determine the expected creatinine clearance for a 55-year-old, I used the regression equation:
+ŷ = 147.813 - 0.6198 × age.
+Substituting age = 55, we calculated: ŷ = 147.813 - 0.6198 × 55 = 113.72.
+This means a 55-year-old is predicted to have a creatinine clearance rate of approximately 113.72 mL/min.
+
+### Part B- How clearance changes with age
+
+
+```{r, echo=FALSE}
+slope
+```
+
+The creatinine clearance rate decreases by 0.6198 mL/minute per year.This value is the slope of the regression line, which represents the expected change in clearance rate for each additional year of age. I obtained this value from the output of the linear regression output.
+
+
+### Part C Whose creatinine clearance rate is healthier 
+```{r, echo=FALSE}
+# Predictions for 40 and 60 year olds
+pred_40 <- intercept + slope * 40
+pred_60 <- intercept + slope * 60
+actual_40 <- 135
+actual_60 <- 112
+resid_40 <- actual_40 - pred_40
+resid_60 <- actual_60 - pred_60
+
+resid_40
+resid_60
+```
+To determine who has a healthier creatinine clearance relative to their age, a 40-year-old with a rate of 135, or a
+ 60-year-old with a rate of 112, compare the residuals:
+I  used the regression equation:
+ŷ = 147.813 - 0.6198 × age
+
+For the 40-year-old:
+ŷ = 147.813 - 0.6198 × 40 = 123.02
+Residual = 135 - 123.02 = 11.98
+
+For the 60-year-old:
+ŷ = 147.813 - 0.6198 × 60 = 110.63
+Residual = 112 - 110.63 = 1.38
+
+The 40-year-old has a larger positive residual, meaning their actual creatinine clearance is much higher than what the model predicts for their age. Therefore, the 40-year-old has a healthier creatinine clearance rate relative to their age.
+
+
+
+### Question 2
+
+```{r, echo=FALSE}
+covid <- read.csv("covid.csv")
+# Keep only non-zero deaths and compute log(deaths)
+covid <- covid %>%
+  filter(deaths > 0) %>%
+  mutate(log_deaths = log(deaths))
+```
+
+#### Growth rates
+
+```{r, echo=FALSE}
+# Split into Italy and Spain
+italy <- covid %>% filter(country == "Italy")
+spain <- covid %>% filter(country == "Spain")
+# Fit log-linear models
+italy_model <- lm(log_deaths ~ days_since_first_death, data = italy)
+spain_model <- lm(log_deaths ~ days_since_first_death, data = spain)
+# Get growth rates
+italy_growth <- coef(italy_model)[2]
+spain_growth <- coef(spain_model)[2]
+
+cat("Italy Growth Rate:", round(italy_growth, 3), "\n")
+cat("Spain Growth Rate:", round(spain_growth, 3), "\n")
+```
+
+#### Doubling times
+
+```{r, echo=FALSE}
+# Calculate doubling times
+italy_doubling <- log(2) / italy_growth
+spain_doubling <- log(2) / spain_growth
+cat("Italy Doubling Time:", round(italy_doubling, 1), "days\n")
+cat("Spain Doubling Time:", round(spain_doubling, 1), "days\n")
+```
+
+
+#### Confidence intervals for Italy: Growth rate, doubling time
+
+```{r, echo=FALSE}
+library(mosaic)
+italy_boot <- do(10000) * {
+  sample <- resample(italy)
+  model <- lm(log_deaths ~ days_since_first_death, data = sample)
+  data.frame(growth = coef(model)[2])
+}
+
+italy_growth_ci <- quantile(italy_boot$growth, c(0.025, 0.975))
+italy_doubling_ci <- quantile(log(2) / italy_boot$growth, c(0.025, 0.975))
+cat("Italy growth rate 95% CI:", round(italy_growth_ci[1], 3), "-", round(italy_growth_ci[2], 3), "\n")
+cat("Italy doubling time 95% CI:", round(italy_doubling_ci[1], 1), "-", round(italy_doubling_ci[2], 1), "\n")
+
+
+```
+In Italy, the estimated growth rate was 0.183 (95% CI: 0.159, 0.208), meaning daily deaths increased by about 18.3% per day. This corresponds to a doubling time of 3.8 days (95% CI: 3.3, 4.3), meaning the number of daily deaths was doubling roughly every four days.
+
+#### Confidence intervals for Spain: Growth rate, doubling time
+```{r, echo=FALSE}
+spain_boot <- do(10000) * {
+  sample <- resample(spain)
+  model <- lm(log_deaths ~ days_since_first_death, data = sample)
+  data.frame(growth = coef(model)[2])
+}
+
+# Calculate confidence intervals
+spain_growth_ci <- quantile(spain_boot$growth, c(0.025, 0.975))
+spain_doubling_ci <- quantile(log(2) / spain_boot$growth, c(0.025, 0.975))
+cat("Spain growth rate 95% CI:", round(spain_growth_ci[1], 3), "-", round(spain_growth_ci[2], 3), "\n")
+cat("Spain doubling time 95% CI:", round(spain_doubling_ci[1], 1), "-", round(spain_doubling_ci[2], 1), "\n")
+```
+In Spain, the growth rate was higher at 0.276 (95% CI: 0.234, 0.318), with a doubling time of 2.5 days (95% CI: 2.2, 3.0). This indicates that deaths were rising more quickly in Spain than in Italy during the early phase of the pandemic.
+
+
+```{r, echo=FALSE}
+ggplot(covid, aes(x = days_since_first_death, y = deaths, color = country)) +
+  geom_line(size = 1) +
+  labs(title = "Daily COVID-19 Deaths in Italy and Spain",
+       x = "Days Since First Death",
+       y = "Reported Deaths") +
+  theme_minimal()
+
+```
+The line graph shows the daily reported deaths over time, using days since the first death in each country. The graph clearly shows the faster rise in deaths in Spain compared to Italy.
+
+### Question 3
+
+```{r, echo=FALSE, show_col_types = FALSE}
+library(tidyverse)
+milk <- read_csv("milk.csv", show_col_types = FALSE) %>%
+  mutate(log_price = log(price),
+         log_sales = log(sales))
+
+# Fit initial model
+elasticity_model <- lm(log_sales ~ log_price, data = milk)
+elasticity_estimate <- coef(elasticity_model)[2]
+
+boot_results <- do(10000) * {
+  sample <- resample(milk)
+  model <- lm(log_sales ~ log_price, data = sample)
+  data.frame(elasticity = coef(model)[2])
+}
+
+# Compute CI
+elasticity_ci <- quantile(boot_results$elasticity, c(0.025, 0.975))
+
+cat("Estimated price elasticity of demand:", round(elasticity_estimate, 3), "\n")
+cat("95% confidence interval: [", round(elasticity_ci[1], 3), ",", round(elasticity_ci[2], 3), "]\n")
+
+```
+I estimated the price elasticity of demand for milk using a power-law model, where quantity sold is related to price by  Q = KP^B, where P is price, Q is quantity demanded by consumers at that price, where B is the price elasticity of demand.
+ By fitting a linear regression of log(sales) on log(price), I estimated the price elasticity (B) to be -1.619. I computed a 95% confidence interval for the elasticity: [-1.762, -1.455]. Because the confidence interval does not include 0, this result indicates that demand for milk is elastic — consumers are relatively sensitive to price changes.
+
+
